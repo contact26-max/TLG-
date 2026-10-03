@@ -1,0 +1,67 @@
+require('dotenv').config();
+const express = require('express');
+const Stripe = require('stripe');
+
+const app = express();
+const port = process.env.PORT || 3000;
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
+
+app.use(express.json());
+app.use(express.static('public'));
+
+app.get('/health', (req, res) => {
+  res.json({
+    ok: true,
+    service: 'TLG Stripe Payment API',
+    stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SECRET_KEY !== 'sk_test_your_key_here')
+  });
+});
+
+app.post('/create-checkout-session', async (req, res) => {
+  const priceId = req.body?.priceId || process.env.STRIPE_PRICE_ID;
+
+  if (!process.env.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY === 'sk_test_your_key_here') {
+    return res.status(500).json({
+      error: 'Stripe is not configured. Add your SECRET key to the .env file.'
+    });
+  }
+
+  if (!priceId) {
+    return res.status(400).json({
+      error: 'Missing Stripe priceId. Set STRIPE_PRICE_ID in your .env file or send priceId in the request.'
+    });
+  }
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1
+        }
+      ],
+      success_url: `${req.protocol}://${req.get('host')}/success.html?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${req.protocol}://${req.get('host')}/cancel.html`,
+      metadata: {
+        source: 'tlg-ai-receptionist',
+        customerType: req.body?.customerType || 'default'
+      }
+    });
+
+    return res.json({ url: session.url });
+  } catch (error) {
+    console.error('Stripe checkout failed:', error.message);
+    return res.status(400).json({
+      error: error.message
+    });
+  }
+});
+
+app.get('/', (req, res) => {
+  res.sendFile(__dirname + '/public/index.html');
+});
+
+app.listen(port, () => {
+  console.log(`TLG Stripe payment server running on http://localhost:${port}`);
+});
