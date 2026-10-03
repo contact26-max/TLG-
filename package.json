@@ -1,7 +1,7 @@
 {
   "name": "tlg-stripe-payment",
   "version": "1.0.0",
-  "description": "Minimal Stripe payment integration for the TLG AI receptionist platform",
+  "description": "Stripe payment integration for TLG AI receptionist system",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
